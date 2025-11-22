@@ -6,14 +6,32 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		758B77A22ED1DD5C00242ECA /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 758B77A12ED1DD5C00242ECA /* Foundation.framework */; };
+		758B77A42ED1DD6000242ECA /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 758B77A32ED1DD6000242ECA /* QuartzCore.framework */; };
+		758B77A82ED1DD6C00242ECA /* MetalFX.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 758B77A52ED1DD6C00242ECA /* MetalFX.framework */; };
+		758B77A92ED1DD6C00242ECA /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 758B77A62ED1DD6C00242ECA /* MetalKit.framework */; };
+		758B77AA2ED1DD6C00242ECA /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 758B77A72ED1DD6C00242ECA /* Metal.framework */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		758B77852ED1DD4A00242ECA /* Loupy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Loupy.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		758B77A12ED1DD5C00242ECA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		758B77A32ED1DD6000242ECA /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		758B77A52ED1DD6C00242ECA /* MetalFX.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalFX.framework; path = System/Library/Frameworks/MetalFX.framework; sourceTree = SDKROOT; };
+		758B77A62ED1DD6C00242ECA /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		758B77A72ED1DD6C00242ECA /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		758B77872ED1DD4A00242ECA /* Loupy */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Loupy;
+			sourceTree = "<group>";
+		};
+		758B784D2ED1F4ED00242ECA /* include */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = include;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -23,6 +41,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				758B77A82ED1DD6C00242ECA /* MetalFX.framework in Frameworks */,
+				758B77A92ED1DD6C00242ECA /* MetalKit.framework in Frameworks */,
+				758B77AA2ED1DD6C00242ECA /* Metal.framework in Frameworks */,
+				758B77A42ED1DD6000242ECA /* QuartzCore.framework in Frameworks */,
+				758B77A22ED1DD5C00242ECA /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -32,7 +55,9 @@
 		758B777C2ED1DD4A00242ECA = {
 			isa = PBXGroup;
 			children = (
+				758B784D2ED1F4ED00242ECA /* include */,
 				758B77872ED1DD4A00242ECA /* Loupy */,
+				758B77A02ED1DD5C00242ECA /* Frameworks */,
 				758B77862ED1DD4A00242ECA /* Products */,
 			);
 			sourceTree = "<group>";
@@ -43,6 +68,18 @@
 				758B77852ED1DD4A00242ECA /* Loupy.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		758B77A02ED1DD5C00242ECA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				758B77A72ED1DD6C00242ECA /* Metal.framework */,
+				758B77A52ED1DD6C00242ECA /* MetalFX.framework */,
+				758B77A62ED1DD6C00242ECA /* MetalKit.framework */,
+				758B77A32ED1DD6000242ECA /* QuartzCore.framework */,
+				758B77A12ED1DD5C00242ECA /* Foundation.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -62,6 +99,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				758B77872ED1DD4A00242ECA /* Loupy */,
+				758B784D2ED1F4ED00242ECA /* include */,
 			);
 			name = Loupy;
 			packageProductDependencies = (
@@ -254,6 +292,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = "include/**";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
@@ -284,6 +323,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = "include/**";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;

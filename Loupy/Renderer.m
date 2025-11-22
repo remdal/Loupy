@@ -5,7 +5,7 @@
 //  Created by Rémy on 22/11/2025.
 //
 
-#import <simd/simd.h>
+/*#import <simd/simd.h>
 #import <ModelIO/ModelIO.h>
 
 #import "Renderer.h"
@@ -363,3 +363,4 @@ matrix_float4x4 matrix_perspective_right_hand(float fovyRadians, float aspect, f
 }
 
 @end
+*/
