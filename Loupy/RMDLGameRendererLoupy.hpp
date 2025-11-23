@@ -65,6 +65,24 @@ private:
     MTL::Library*                       _pShaderLibrary;
     int                                 _frame;
     NS::SharedPtr<MTL::SharedEvent>     _pPacingEvent;
+    RMDLUniforms*                       _uniforms_cpu;
+    RMDLCamera*                         _pCamera;
+    simd::float2                        _cursorPosition;
+    MTL::Buffer*                        _mouseBuffer;
+    NS::UInteger                        _mouseButtonMask;
+    float                               _brushSize;
+    MTL::Texture*                       _gBuffer0;
+    MTL::Texture*                       _gBuffer1;
+    MTL::Texture*                       _shadowMap;
+    MTL::Texture*                       _depth;
+    MTL::TextureDescriptor*             _pTextureDesc;
+    MTL4::RenderPassDescriptor*         _gBufferPassDesc;
+    MTL4::RenderPassDescriptor*         _shadowPassDesc;
+    MTL4::RenderPassDescriptor*         _lightingPassDesc;
+    MTL::DepthStencilState*             _shadowDepthState;
+    MTL::DepthStencilState*             _gBufferDepthState;
+    MTL::DepthStencilState*             _lightingDepthState;
+    MTL4::RenderPassDescriptor*         _gBufferWithLoadPassDesc;
 
     MTL::Buffer* _pJDLVStateBuffer[kMaxBuffersInFlight];
     MTL::Buffer* _pGridBuffer_A[kMaxBuffersInFlight];

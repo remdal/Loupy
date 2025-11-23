@@ -65,4 +65,43 @@ struct RMDLObjVertex
     simd::float3    color;
 };
 
+// Mesh
+typedef enum VertexAttributes
+{
+    VertexAttributePosition  = 0,
+    VertexAttributeTexcoord  = 1,
+    VertexAttributeNormal    = 2,
+    VertexAttributeTangent   = 3,
+    VertexAttributeBitangent = 4
+}   VertexAttributes;
+
+typedef enum BufferIndex
+{
+    BufferIndexMeshPositions     = 0,
+    BufferIndexMeshGenerics      = 1,
+    BufferIndexFrameData         = 2,
+    BufferIndexLightsData        = 3,
+    BufferIndexLightsPosition    = 4,
+    BufferIndexFlatColor         = 0,
+    BufferIndexDepthRange        = 0,
+}   BufferIndex;
+
+typedef enum TextureIndex
+{
+    TextureIndexBaseColor = 0,
+    TextureIndexSpecular  = 1,
+    TextureIndexNormal    = 2,
+    TextureIndexShadow    = 3,
+    TextureIndexAlpha     = 4,
+    NumMeshTextures = TextureIndexNormal + 1
+}   TextureIndex;
+
+typedef enum RenderTargetIndex
+{
+    RenderTargetLighting  = 0,
+    RenderTargetAlbedo    = 1,
+    RenderTargetNormal    = 2,
+    RenderTargetDepth     = 3
+}   RenderTargetIndex;
+
 #endif /* RMDLMainRenderer_shared_h */

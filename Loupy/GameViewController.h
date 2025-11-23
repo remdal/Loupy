@@ -8,11 +8,9 @@
 #import <Cocoa/Cocoa.h>
 #import <Metal/Metal.h>
 #import <MetalKit/MetalKit.h>
-#import "Renderer.h"
 
-@interface RMDLGameApplicationLoupy : NSWindow <NSApplicationDelegate, NSWindowDelegate, MTKViewDelegate>
+@interface RMDLGameApplicationLoupy : NSObject <NSApplicationDelegate, NSWindowDelegate, MTKViewDelegate>
 
-@property (assign) IBOutlet NSWindow *window;
 @property (nonatomic, strong, readonly) MTKView *mtkView;
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification;
@@ -21,6 +19,8 @@
 - (void)keyDown:(NSEvent *)event;
 - (void)keyUp:(NSEvent *)event;
 - (void)mouseDown:(NSEvent *)event;
+- (void)mouseUp:(NSEvent *)event;
+- (void)mouseDragged:(NSEvent *)event;
 
 - (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size;
 - (void)drawInMTKView:(MTKView *)view;
@@ -28,5 +28,5 @@
 - (void)moveCameraX:(float)x Y:(float)y Z:(float)z;
 - (void)rotateCameraYaw:(float)yaw Pitch:(float)pitch;
 
-
 @end
+
