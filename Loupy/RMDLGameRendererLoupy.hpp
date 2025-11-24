@@ -41,6 +41,8 @@ public:
     void makeResidencySet();
     void compileRenderPipeline( MTL::PixelFormat );
 
+    void updateUniforms();
+
 private:
     MTL::PixelFormat                    _pPixelFormat;
     MTL4::CommandQueue*                 _pCommandQueue;
@@ -83,6 +85,8 @@ private:
     MTL::DepthStencilState*             _gBufferDepthState;
     MTL::DepthStencilState*             _lightingDepthState;
     MTL4::RenderPassDescriptor*         _gBufferWithLoadPassDesc;
+    MTL::ComputePipelineState*          _pipelineStateDescriptor;
+    MTL::ComputePipelineState*          _mousePositionComputeKnl;
 
     MTL::Buffer* _pJDLVStateBuffer[kMaxBuffersInFlight];
     MTL::Buffer* _pGridBuffer_A[kMaxBuffersInFlight];

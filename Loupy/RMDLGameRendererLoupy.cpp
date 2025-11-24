@@ -76,12 +76,11 @@ GameCoordinatorLoupy::GameCoordinatorLoupy( MTL::Device* pDevice, MTL::PixelForm
     _pViewportSizeBuffer = _pDevice->newBuffer(sizeof(_pViewportSize), MTL::ResourceStorageModeShared);
     ft_memcpy(_pViewportSizeBuffer->contents(), &_pViewportSize, sizeof(_pViewportSize));
 
-    
     _brushSize = 1000.0f;
     {
         static const NS::UInteger shadowWidth = 1024;
-        _pTextureDesc = MTL::TextureDescriptor::texture2DDescriptor(MTL::PixelFormatDepth32Float, shadowWidth, shadowWidth, false);
-        _pTextureDesc->setTextureType(MTL::TextureType2DArray);
+        _pTextureDesc = MTL::TextureDescriptor::texture2DDescriptor( MTL::PixelFormatDepth32Float, shadowWidth, shadowWidth, false );
+        _pTextureDesc->setTextureType( MTL::TextureType2DArray );
         _pTextureDesc->setArrayLength(3);
         _pTextureDesc->setUsage( MTL::TextureUsageRenderTarget) ;
         _pTextureDesc->setStorageMode( MTL::StorageModePrivate );
@@ -99,6 +98,8 @@ GameCoordinatorLoupy::GameCoordinatorLoupy( MTL::Device* pDevice, MTL::PixelForm
     _shadowDepthState = _pDevice->newDepthStencilState( depthStateDesc );
 
     _gBufferPassDesc->depthAttachment()->setClearDepth( 1.0f );
+    _gBufferPassDesc->depthAttachment()->setLevel(0);
+    _gBufferPassDesc->depthAttachment()->setSlice(0);
     _gBufferPassDesc->depthAttachment()->setTexture( _shadowMap );
     _gBufferPassDesc->depthAttachment()->setLoadAction( MTL::LoadActionClear );
     _gBufferPassDesc->depthAttachment()->setStoreAction( MTL::StoreActionStore );
@@ -126,7 +127,37 @@ GameCoordinatorLoupy::GameCoordinatorLoupy( MTL::Device* pDevice, MTL::PixelForm
     {
         MTL4::RenderPipelineDescriptor* pRenderPipDesc = MTL4::RenderPipelineDescriptor::alloc()->init();
         pRenderPipDesc->setLabel(MTLSTR("Lighting"));
-        
+
+        MTL4::LibraryFunctionDescriptor* vertexFunction = MTL4::LibraryFunctionDescriptor::alloc()->init();
+        vertexFunction->setName(MTLSTR("LightingVs"));
+        vertexFunction->setLibrary(_pShaderLibrary);
+        pRenderPipDesc->setVertexFunctionDescriptor(vertexFunction);
+
+        MTL4::LibraryFunctionDescriptor* fragmentFunction = MTL4::LibraryFunctionDescriptor::alloc()->init();
+        fragmentFunction->setName( NS::String::string( "LightingPs", NS::ASCIIStringEncoding ) );
+        fragmentFunction->setLibrary(_pShaderLibrary);
+        pRenderPipDesc->setFragmentFunctionDescriptor(fragmentFunction);
+
+        pRenderPipDesc->setRasterSampleCount(1);
+        pRenderPipDesc->colorAttachments()->object(0)->setPixelFormat( MTL::PixelFormatRGBA16Float );
+
+        MTL4::Compiler* compiler = _pDevice->newCompiler( MTL4::CompilerDescriptor::alloc()->init(), &pError );
+        _pPSO = compiler->newRenderPipelineState(pRenderPipDesc, nullptr, &pError);
+
+//        const MTL::ResourceOptions storeMode = MTL::ResourceStorageModeManaged;
+
+        simd::float4 initialMouseWorldPos = (simd::float4){ 0.f, 0.f, 0.f, 0.f };
+        _mouseBuffer = _pDevice->newBuffer( &initialMouseWorldPos, sizeof(initialMouseWorldPos), MTL::ResourceStorageModeManaged );
+        MTL4::ComputePipelineDescriptor *pPipStateDesc = MTL4::ComputePipelineDescriptor::alloc()->init();
+        pPipStateDesc->setThreadGroupSizeIsMultipleOfThreadExecutionWidth(true);
+
+        NS::SharedPtr<MTL::Function> computeFunction = NS::TransferPtr(_pShaderLibrary->newFunction(MTLSTR("mousePositionUpdate")));
+        _mousePositionComputeKnl = _pDevice->newComputePipelineState(computeFunction.get(), 0, nullptr, &pError);
+
+
+        _pTextureDesc->release();
+        _shadowMap->release();
+        compiler->release();
     }
 }
 
@@ -159,6 +190,58 @@ GameCoordinatorLoupy::~GameCoordinatorLoupy()
     _pDevice->release();
 }
 
+void GameCoordinatorLoupy::updateUniforms()
+{
+#if !USE_CONST_GAME_TIME
+    _uniforms_cpu->gameTime                     = 0.f;
+#endif
+    _uniforms_cpu->cameraUniforms               = _pCamera->uniforms();
+    float gameTime                              = _frame * (1.0 / 60.f);
+    _uniforms_cpu->frameTime                    = simd_max(0.001f, gameTime - 0);
+    _uniforms_cpu->mouseState                   = (simd::float3){ _cursorPosition.x, _cursorPosition.y, float(_mouseButtonMask) };
+    _uniforms_cpu->invScreenSize                = (simd::float2){ 1.f / _gBuffer0->width(), 1.f / _gBuffer0->height() };
+    _uniforms_cpu->projectionYScale             = 1.73205066;
+    _uniforms_cpu->ambientOcclusionContrast     = 3;
+    _uniforms_cpu->ambientOcclusionScale        = 0.800000011;
+    _uniforms_cpu->ambientLightScale            = 0.699999988;
+    _uniforms_cpu->brushSize                    = _brushSize;
+    {
+        /* 0.816497    0.684719    0.632456
+         480.000031 2031.257568 8212.626953 */
+        const simd::float3 sunDir = simd::normalize((simd::float3){ 1, -0.7, 0.5 });
+        float tan_half_angle = tanf(_pCamera->viewAngle() * 0.5f) * sqrtf(2.0);
+        float half_angle = atanf(tan_half_angle);
+        float sine_half_angle = sinf(half_angle);
+        std::cout << tan_half_angle << half_angle << sine_half_angle << std::endl;
+
+        float cascade_sizes[3] = { 400.0f, 1600.0f, 6400.0f };
+        float cascade_distances[3];
+        cascade_distances[0] = 2 * cascade_sizes[0] * (1.0f - sine_half_angle * sine_half_angle);
+        cascade_distances[1] = sqrtf(cascade_sizes[1] * cascade_sizes[1] - cascade_distances[0] * cascade_distances[0] * tan_half_angle * tan_half_angle) * cascade_distances[0];
+        cascade_distances[2] = sqrtf(cascade_sizes[2] * cascade_sizes[2] - cascade_distances[1] * cascade_distances[1] * tan_half_angle * tan_half_angle) * cascade_distances[1];
+        std::cout << cascade_distances[0] << cascade_distances[1] << cascade_distances[2] << std::endl;
+
+        for (uint c = 0; c < 3; c++)
+        {
+            simd::float3 center = _pCamera->position() + _pCamera->direction() * cascade_distances[c];
+            float size = cascade_sizes[c];
+            float stepsize = size / 64.0f;
+            RMDLCamera* shadow_cam = nullptr;
+            shadow_cam->initParallelWithPosition(center - sunDir * size,
+                                                 sunDir,
+                                                 simd::float3{ 0.0f, 1.0f, 0.0f },
+                                                 size * 2.0f,
+                                                 size * 2.0f,
+                                                 0.0f,
+                                                 size * 2.0f);
+            auto positionP = Fract( simd::dot(center, shadow_cam->up() ) / stepsize) * shadow_cam->up() * stepsize;
+            auto positionN = Fract( simd::dot(center, shadow_cam->right() ) / stepsize) * shadow_cam->right() * stepsize;
+            shadow_cam->setPosition(positionP - positionN);
+            _uniforms_cpu->shadowCameraUniforms[c] = shadow_cam->uniforms();
+        }
+    }
+}
+
 void GameCoordinatorLoupy::draw( MTK::View* _pView )
 {
     NS::AutoreleasePool *pPool = NS::AutoreleasePool::alloc()->init();
@@ -178,30 +261,30 @@ void GameCoordinatorLoupy::draw( MTK::View* _pView )
     viewPort.originY = 0.0;
     viewPort.znear = 0.0;
     viewPort.zfar = 1.0;
-    viewPort.width = (double)_pViewportSize.x;
-    viewPort.height = (double)_pViewportSize.y;
+    viewPort.width = (double)_shadowMap->width();
+    viewPort.height = (double)_shadowMap->height();
 
-#if !USE_CONST_GAME_TIME
-    _uniforms_cpu->gameTime                     = 0.f;
-#endif
-    _uniforms_cpu->cameraUniforms               = _pCamera->uniforms();
-    float gameTime                              = _frame * (1.0 / 60.f);
-    _uniforms_cpu->frameTime                    = simd_max(0.001f, gameTime - 0);
-    _uniforms_cpu->mouseState                   = (simd::float3){ _cursorPosition.x, _cursorPosition.y, float(_mouseButtonMask) };
-    _uniforms_cpu->invScreenSize                = (simd::float2){ 1.f / _gBuffer0->width(), 1.f / _gBuffer0->height() };
-    _uniforms_cpu->projectionYScale             = 1.73205066;
-    _uniforms_cpu->ambientOcclusionContrast     = 3;
-    _uniforms_cpu->ambientOcclusionScale        = 0.800000011;
-    _uniforms_cpu->ambientLightScale            = 0.699999988;
-    _uniforms_cpu->brushSize                    = _brushSize;
-
+    updateUniforms();
     
-//    MTL4::CommandAllocator* pFrameAllocator = _pCommandAllocator[frameIndex];
-//    pFrameAllocator->reset();
-//
-//    _pCommandBuffer[0] = _pDevice->newCommandBuffer();
-//    _pCommandBuffer[0]->beginCommandBuffer(pFrameAllocator);
-//
+    MTL4::CommandAllocator* pFrameAllocator = _pCommandAllocator[frameIndex];
+    pFrameAllocator->reset();
+
+    _pCommandBuffer[0] = _pDevice->newCommandBuffer();
+    _pCommandBuffer[0]->beginCommandBuffer(pFrameAllocator);
+
+    for (uint32_t i = 0; i < 3; i++)
+    {
+        _shadowPassDesc->depthAttachment()->setSlice(i);
+        MTL4::RenderCommandEncoder* renderPassEncoder = _pCommandBuffer[0]->renderCommandEncoder(_shadowPassDesc);
+        renderPassEncoder->setCullMode( MTL::CullModeFront );
+        renderPassEncoder->setDepthClipMode( MTL::DepthClipModeClamp );
+        renderPassEncoder->setDepthStencilState(_shadowDepthState);
+
+        renderPassEncoder->setViewport(viewPort);
+        renderPassEncoder->setScissorRect( MTL::ScissorRect {0, 0, _shadowMap->width(), _shadowMap->height()} );
+        
+    }
+
 //    MTL4::RenderPassDescriptor* pRenderPassDescriptor = _pView->currentMTL4RenderPassDescriptor();
 //    MTL::RenderPassColorAttachmentDescriptor* color0 = pRenderPassDescriptor->colorAttachments()->object(0);
 //    color0->setLoadAction( MTL::LoadActionClear );
@@ -272,11 +355,11 @@ void GameCoordinatorLoupy::draw( MTK::View* _pView )
 //
 //    _useBufferAAsSource = !_useBufferAAsSource;
 //
-//    CA::MetalDrawable* currentDrawable = _pView->currentDrawable();
-//    _pCommandQueue->wait(currentDrawable);
-//    _pCommandQueue->commit(_pCommandBuffer, 3);
-//    _pCommandQueue->signalDrawable(currentDrawable);
-//    _pCommandQueue->signalEvent(_sharedEvent, _currentFrameIndex);
-//    currentDrawable->present();
+    CA::MetalDrawable* currentDrawable = _pView->currentDrawable();
+    _pCommandQueue->wait(currentDrawable);
+    _pCommandQueue->commit(_pCommandBuffer, 0);
+    _pCommandQueue->signalDrawable(currentDrawable);
+    _pCommandQueue->signalEvent(_sharedEvent, _currentFrameIndex);
+    currentDrawable->present();
     pPool->release();
 }
