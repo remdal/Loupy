@@ -16,6 +16,30 @@ struct GBufferFragOut
     float4 gBuffer1 [[color(1)]];
 };
 
+struct LightingPsOut
+{
+    float4 backbuffer [[color(0)]];
+};
+
+struct LightingVtxOut
+{
+    float4 position [[position]];
+};
+
+vertex LightingVtxOut LightingVs(uint vid [[vertex_id]])
+{
+    const float2 vertices[] =
+    {
+        float2(-1, -1),
+        float2(-1,  3),
+        float2( 3, -1)
+    };
+
+    LightingVtxOut out;
+    out.position = float4(vertices[vid], 1.0, 1.0);
+    return out;
+}
+
 // The bi-directional reflectance distribution properties
 //  - Defines how light is reflected on an opaque surface
 struct BrdfProperties
@@ -112,4 +136,25 @@ inline uint wang_hash(uint seed)
     seed *= 0x27d4eb2d;
     seed = seed ^ (seed >> 15);
     return seed;
+}
+
+static float3 GetWorldPositionAndViewDirFromDepth(uint2 tid, float depth, constant RMDLUniforms& uniforms, thread float3& outViewDirection)
+{
+    float4 ndc;
+    ndc.xy = (float2(tid) + 0.5) * uniforms.invScreenSize;
+    ndc.xy = ndc.xy * 2 - 1;
+    ndc.y *= -1;
+
+    ndc.z = depth;
+    ndc.w = 1;
+
+    float4 worldPosition = uniforms.cameraUniforms.invViewProjectionMatrix * ndc;
+    worldPosition.xyz /= worldPosition.w;
+
+    ndc.z = 1.f;
+    float4 viewDir = uniforms.cameraUniforms.invOrientationProjectionMatrix * ndc;
+    viewDir /= viewDir.w;
+    outViewDirection = viewDir.xyz;
+
+    return worldPosition.xyz;
 }

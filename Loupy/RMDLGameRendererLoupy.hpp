@@ -78,15 +78,19 @@ private:
     MTL::Texture*                       _shadowMap;
     MTL::Texture*                       _depth;
     MTL::TextureDescriptor*             _pTextureDesc;
+
     MTL4::RenderPassDescriptor*         _gBufferPassDesc;
     MTL4::RenderPassDescriptor*         _shadowPassDesc;
     MTL4::RenderPassDescriptor*         _lightingPassDesc;
+    MTL4::RenderPassDescriptor*         _gBufferWithLoadPassDesc;
+
     MTL::DepthStencilState*             _shadowDepthState;
     MTL::DepthStencilState*             _gBufferDepthState;
     MTL::DepthStencilState*             _lightingDepthState;
-    MTL4::RenderPassDescriptor*         _gBufferWithLoadPassDesc;
     MTL::ComputePipelineState*          _pipelineStateDescriptor;
     MTL::ComputePipelineState*          _mousePositionComputeKnl;
+    MTL::Buffer*                        _pShadowPassDataBuffer[kMaxBuffersInFlight];
+
 
     MTL::Buffer* _pJDLVStateBuffer[kMaxBuffersInFlight];
     MTL::Buffer* _pGridBuffer_A[kMaxBuffersInFlight];

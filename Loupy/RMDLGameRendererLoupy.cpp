@@ -50,27 +50,14 @@ GameCoordinatorLoupy::GameCoordinatorLoupy( MTL::Device* pDevice, MTL::PixelForm
     
     for (uint8_t i = 0; i < kMaxFramesInFlight; i++)
     {
-        //        _pTriangleDataBuffer[i] = _pDevice->newBuffer( sizeof(TriangleData), MTL::ResourceStorageModeShared );
-        //        std::string name = "_pTriangleDataBuffer[" + std::to_string(i) + "]";
-        //        _pTriangleDataBuffer[i]->setLabel( NS::String::string( name.c_str(), NS::ASCIIStringEncoding ) );
-        //
         _pCommandAllocator[i] = _pDevice->newCommandAllocator();
-        //
-        //        _pJDLVStateBuffer[i] = _pDevice->newBuffer( sizeof(JDLVState), MTL::ResourceStorageModeManaged );
-        //        _pGridBuffer_A[i] = _pDevice->newBuffer( gridSize, MTL::ResourceStorageModeManaged );
-        //        _pGridBuffer_B[i] = _pDevice->newBuffer( gridSize, MTL::ResourceStorageModeManaged );
-        //        ft_memset(_pGridBuffer_A[i]->contents(), 0, gridSize);
-        //        ft_memset(_pGridBuffer_B[i]->contents(), 0, gridSize);
-        //        _pGridBuffer_A[i]->didModifyRange( NS::Range(0, gridSize) );
-        //        _pGridBuffer_B[i]->didModifyRange( NS::Range(0, gridSize) );
+
+        _pShadowPassDataBuffer[i] = _pDevice->newBuffer( sizeof(simd::float4x4), MTL::ResourceStorageModeShared );
     }
-    //
-    //    initGrid();
     //    buildJDLVPipelines();
     //    buildDepthStencilStates();
-    //
-    const NS::UInteger nativeWidth = (NS::UInteger)(w/1.2);
-    const NS::UInteger nativeHeight = (NS::UInteger)(h/1.2);
+//    const NS::UInteger nativeWidth = (NS::UInteger)(w/1.2);
+//    const NS::UInteger nativeHeight = (NS::UInteger)(h/1.2);
     _pViewportSize.x = (float)w;
     _pViewportSize.y = (float)h;
     _pViewportSizeBuffer = _pDevice->newBuffer(sizeof(_pViewportSize), MTL::ResourceStorageModeShared);
@@ -87,15 +74,18 @@ GameCoordinatorLoupy::GameCoordinatorLoupy( MTL::Device* pDevice, MTL::PixelForm
         _shadowMap = _pDevice->newTexture(_pTextureDesc);
         _shadowMap->setLabel(MTLSTR("Shadow"));
     }
-    MTL::DepthStencilDescriptor* depthStateDesc = MTL::DepthStencilDescriptor::alloc()->init();
+
+    NS::SharedPtr<MTL::DepthStencilDescriptor> depthStateDesc = NS::TransferPtr( MTL::DepthStencilDescriptor::alloc()->init() );
     depthStateDesc->setDepthCompareFunction( MTL::CompareFunctionLess );
     depthStateDesc->setDepthWriteEnabled( true );
+
     
     _shadowPassDesc->depthAttachment()->setTexture(_shadowMap);
     _shadowPassDesc->depthAttachment()->setClearDepth( 1.f );
     _shadowPassDesc->depthAttachment()->setLoadAction( MTL::LoadActionClear );
     _shadowPassDesc->depthAttachment()->setStoreAction( MTL::StoreActionStore );
-    _shadowDepthState = _pDevice->newDepthStencilState( depthStateDesc );
+
+    _shadowDepthState = _pDevice->newDepthStencilState(depthStateDesc.get());
 
     _gBufferPassDesc->depthAttachment()->setClearDepth( 1.0f );
     _gBufferPassDesc->depthAttachment()->setLevel(0);
@@ -111,7 +101,8 @@ GameCoordinatorLoupy::GameCoordinatorLoupy( MTL::Device* pDevice, MTL::PixelForm
 
     depthStateDesc->setDepthCompareFunction( MTL::CompareFunctionLess );
     depthStateDesc->setDepthWriteEnabled( true );
-    _gBufferDepthState = _pDevice->newDepthStencilState(depthStateDesc);
+
+    _gBufferDepthState = _pDevice->newDepthStencilState(depthStateDesc.get());
 
     _gBufferWithLoadPassDesc = _gBufferPassDesc;
     _gBufferWithLoadPassDesc->depthAttachment()->setLoadAction( MTL::LoadActionLoad );
@@ -123,41 +114,51 @@ GameCoordinatorLoupy::GameCoordinatorLoupy( MTL::Device* pDevice, MTL::PixelForm
 
     depthStateDesc->setDepthCompareFunction( MTL::CompareFunctionAlways );
     depthStateDesc->setDepthWriteEnabled( false );
-    _lightingDepthState = _pDevice->newDepthStencilState(depthStateDesc);
+    _lightingDepthState = _pDevice->newDepthStencilState(depthStateDesc.get());
     {
         MTL4::RenderPipelineDescriptor* pRenderPipDesc = MTL4::RenderPipelineDescriptor::alloc()->init();
         pRenderPipDesc->setLabel(MTLSTR("Lighting"));
 
-        MTL4::LibraryFunctionDescriptor* vertexFunction = MTL4::LibraryFunctionDescriptor::alloc()->init();
+        NS::SharedPtr<MTL4::LibraryFunctionDescriptor> vertexFunction = NS::TransferPtr( MTL4::LibraryFunctionDescriptor::alloc()->init() );
         vertexFunction->setName(MTLSTR("LightingVs"));
         vertexFunction->setLibrary(_pShaderLibrary);
-        pRenderPipDesc->setVertexFunctionDescriptor(vertexFunction);
+        pRenderPipDesc->setVertexFunctionDescriptor(vertexFunction.get());
 
-        MTL4::LibraryFunctionDescriptor* fragmentFunction = MTL4::LibraryFunctionDescriptor::alloc()->init();
+        NS::SharedPtr<MTL4::LibraryFunctionDescriptor> fragmentFunction = NS::TransferPtr( MTL4::LibraryFunctionDescriptor::alloc()->init() );
         fragmentFunction->setName( NS::String::string( "LightingPs", NS::ASCIIStringEncoding ) );
         fragmentFunction->setLibrary(_pShaderLibrary);
-        pRenderPipDesc->setFragmentFunctionDescriptor(fragmentFunction);
+        pRenderPipDesc->setFragmentFunctionDescriptor(fragmentFunction.get());
 
         pRenderPipDesc->setRasterSampleCount(1);
         pRenderPipDesc->colorAttachments()->object(0)->setPixelFormat( MTL::PixelFormatRGBA16Float );
 
-        MTL4::Compiler* compiler = _pDevice->newCompiler( MTL4::CompilerDescriptor::alloc()->init(), &pError );
+        NS::SharedPtr<MTL4::Compiler> compiler = NS::TransferPtr(_pDevice->newCompiler( MTL4::CompilerDescriptor::alloc()->init(), &pError ));
         _pPSO = compiler->newRenderPipelineState(pRenderPipDesc, nullptr, &pError);
 
-//        const MTL::ResourceOptions storeMode = MTL::ResourceStorageModeManaged;
 
         simd::float4 initialMouseWorldPos = (simd::float4){ 0.f, 0.f, 0.f, 0.f };
         _mouseBuffer = _pDevice->newBuffer( &initialMouseWorldPos, sizeof(initialMouseWorldPos), MTL::ResourceStorageModeManaged );
+
         MTL4::ComputePipelineDescriptor *pPipStateDesc = MTL4::ComputePipelineDescriptor::alloc()->init();
         pPipStateDesc->setThreadGroupSizeIsMultipleOfThreadExecutionWidth(true);
+
 
         NS::SharedPtr<MTL::Function> computeFunction = NS::TransferPtr(_pShaderLibrary->newFunction(MTLSTR("mousePositionUpdate")));
         _mousePositionComputeKnl = _pDevice->newComputePipelineState(computeFunction.get(), 0, nullptr, &pError);
 
 
         _pTextureDesc->release();
-        _shadowMap->release();
-        compiler->release();
+
+        NS::SharedPtr<MTL::ResidencySetDescriptor> residencySetDescriptor =
+            NS::TransferPtr( MTL::ResidencySetDescriptor::alloc()->init() );
+        _pResidencySet = _pDevice->newResidencySet(residencySetDescriptor.get(), &pError);
+        _pResidencySet->requestResidency();
+        for (uint8_t i = 0u; i < kMaxFramesInFlight; ++i)
+        {
+        }
+        _pResidencySet->addAllocation(_pViewportSizeBuffer);
+        _pResidencySet->commit();
+        _pCommandQueue->addResidencySet(_pResidencySet); // .get() is for struct
     }
 }
 
@@ -179,6 +180,11 @@ GameCoordinatorLoupy::~GameCoordinatorLoupy()
     _pDepthStencilStateJDLV->release();
     _pPSO->release();
     _pShaderLibrary->release();
+    
+    
+    _shadowMap->release();
+
+
 //    _pCommandBuffer->release();
     _pCommandQueue->release();
     _pResidencySet->release();
@@ -242,6 +248,17 @@ void GameCoordinatorLoupy::updateUniforms()
     }
 }
 
+void GameCoordinatorLoupy::makeArgumentTable()
+{
+    NS::Error* pError = nullptr;
+
+    MTL4::ArgumentTableDescriptor* argumentTableDescriptor = MTL4::ArgumentTableDescriptor::alloc()->init();
+    argumentTableDescriptor->setMaxBufferBindCount(2);
+
+    _pArgumentTable = _pDevice->newArgumentTable(argumentTableDescriptor, &pError);
+    argumentTableDescriptor->release();
+}
+
 void GameCoordinatorLoupy::draw( MTK::View* _pView )
 {
     NS::AutoreleasePool *pPool = NS::AutoreleasePool::alloc()->init();
@@ -282,7 +299,15 @@ void GameCoordinatorLoupy::draw( MTK::View* _pView )
 
         renderPassEncoder->setViewport(viewPort);
         renderPassEncoder->setScissorRect( MTL::ScissorRect {0, 0, _shadowMap->width(), _shadowMap->height()} );
-        
+        ft_memcpy(_pShadowPassDataBuffer[i], &_uniforms_cpu->shadowCameraUniforms[i].viewProjectionMatrix, sizeof(_uniforms_cpu->shadowCameraUniforms[i].viewProjectionMatrix));
+    }
+    {
+        MTL4::RenderCommandEncoder* renderEncoder = _pCommandBuffer[1]->renderCommandEncoder(_gBufferPassDesc);
+        renderEncoder->setCullMode( MTL::CullModeBack );
+        renderEncoder->setDepthStencilState(_gBufferDepthState);
+    }
+    {
+        MTL4::ComputeCommandEncoder* computeEncoder = _pCommandBuffer[2]->computeCommandEncoder();
     }
 
 //    MTL4::RenderPassDescriptor* pRenderPassDescriptor = _pView->currentMTL4RenderPassDescriptor();
