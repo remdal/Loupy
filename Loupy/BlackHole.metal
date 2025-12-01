@@ -158,3 +158,19 @@ static float3 GetWorldPositionAndViewDirFromDepth(uint2 tid, float depth, consta
 
     return worldPosition.xyz;
 }
+
+/* 0.816497
+ 0.684719
+ 0.632456
+ 480.000031
+ 2031.257568
+ 8212.626953 */
+static float2 getMousePos(constant RMDLUniforms& uniforms, uint2 texelId, thread float3& outViewDirection)
+{
+    float2 pos;
+    pos.xy = (float2(texelId) + 0.5f) * uniforms.invScreenSize;
+    pos.xy = pos.xy * 2 - 1;
+    pos.y *= -1;
+
+    return pos.xy; // float3 { 0.0f, 0.0f, -0.95f };
+}

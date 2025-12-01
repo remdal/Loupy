@@ -29,6 +29,7 @@
 #include <string.h>
 
 #include "RMDLGameRendererLoupy.hpp"
+#include "RMDLUtilities.h"
 
 #define kMaxFramesInFlight 3
 
@@ -116,7 +117,7 @@ GameCoordinatorLoupy::GameCoordinatorLoupy( MTL::Device* pDevice, MTL::PixelForm
     depthStateDesc->setDepthWriteEnabled( false );
     _lightingDepthState = _pDevice->newDepthStencilState(depthStateDesc.get());
     {
-        MTL4::RenderPipelineDescriptor* pRenderPipDesc = MTL4::RenderPipelineDescriptor::alloc()->init();
+        NS::SharedPtr<MTL4::RenderPipelineDescriptor> pRenderPipDesc = NS::TransferPtr( MTL4::RenderPipelineDescriptor::alloc()->init() );
         pRenderPipDesc->setLabel(MTLSTR("Lighting"));
 
         NS::SharedPtr<MTL4::LibraryFunctionDescriptor> vertexFunction = NS::TransferPtr( MTL4::LibraryFunctionDescriptor::alloc()->init() );
@@ -133,7 +134,7 @@ GameCoordinatorLoupy::GameCoordinatorLoupy( MTL::Device* pDevice, MTL::PixelForm
         pRenderPipDesc->colorAttachments()->object(0)->setPixelFormat( MTL::PixelFormatRGBA16Float );
 
         NS::SharedPtr<MTL4::Compiler> compiler = NS::TransferPtr(_pDevice->newCompiler( MTL4::CompilerDescriptor::alloc()->init(), &pError ));
-        _pPSO = compiler->newRenderPipelineState(pRenderPipDesc, nullptr, &pError);
+        _pPSO = compiler->newRenderPipelineState(pRenderPipDesc.get(), nullptr, &pError);
 
 
         simd::float4 initialMouseWorldPos = (simd::float4){ 0.f, 0.f, 0.f, 0.f };
@@ -147,7 +148,6 @@ GameCoordinatorLoupy::GameCoordinatorLoupy( MTL::Device* pDevice, MTL::PixelForm
         _mousePositionComputeKnl = _pDevice->newComputePipelineState(computeFunction.get(), 0, nullptr, &pError);
 
 
-        _pTextureDesc->release();
 
         NS::SharedPtr<MTL::ResidencySetDescriptor> residencySetDescriptor =
             NS::TransferPtr( MTL::ResidencySetDescriptor::alloc()->init() );
@@ -176,10 +176,20 @@ GameCoordinatorLoupy::~GameCoordinatorLoupy()
     _pJDLVComputePSO->release();
     _pJDLVRenderPSO->release();
     _pTexture->release();
+    _pTextureDesc->release();
     _pDepthStencilState->release();
     _pDepthStencilStateJDLV->release();
     _pPSO->release();
     _pShaderLibrary->release();
+    _gBuffer0->release();
+    _gBuffer1->release();
+    _shadowMap->release();
+    _depth->release();
+    _gBufferPassDesc->release();
+    _shadowPassDesc->release();
+    _lightingPassDesc->release();
+    _gBufferWithLoadPassDesc->release();
+    
     
     
     _shadowMap->release();
@@ -212,14 +222,14 @@ void GameCoordinatorLoupy::updateUniforms()
     _uniforms_cpu->ambientLightScale            = 0.699999988;
     _uniforms_cpu->brushSize                    = _brushSize;
     {
-        /* 0.816497    0.684719    0.632456
-         480.000031 2031.257568 8212.626953 */
         const simd::float3 sunDir = simd::normalize((simd::float3){ 1, -0.7, 0.5 });
         float tan_half_angle = tanf(_pCamera->viewAngle() * 0.5f) * sqrtf(2.0);
         float half_angle = atanf(tan_half_angle);
         float sine_half_angle = sinf(half_angle);
         std::cout << tan_half_angle << half_angle << sine_half_angle << std::endl;
-
+        AAPL_PRINT(tan_half_angle + half_angle + sine_half_angle);
+        
+        
         float cascade_sizes[3] = { 400.0f, 1600.0f, 6400.0f };
         float cascade_distances[3];
         cascade_distances[0] = 2 * cascade_sizes[0] * (1.0f - sine_half_angle * sine_half_angle);
@@ -252,11 +262,10 @@ void GameCoordinatorLoupy::makeArgumentTable()
 {
     NS::Error* pError = nullptr;
 
-    MTL4::ArgumentTableDescriptor* argumentTableDescriptor = MTL4::ArgumentTableDescriptor::alloc()->init();
+    NS::SharedPtr<MTL4::ArgumentTableDescriptor> argumentTableDescriptor = NS::TransferPtr( MTL4::ArgumentTableDescriptor::alloc()->init() );
     argumentTableDescriptor->setMaxBufferBindCount(2);
 
-    _pArgumentTable = _pDevice->newArgumentTable(argumentTableDescriptor, &pError);
-    argumentTableDescriptor->release();
+    _pArgumentTable = _pDevice->newArgumentTable(argumentTableDescriptor.get(), &pError);
 }
 
 void GameCoordinatorLoupy::draw( MTK::View* _pView )
@@ -301,6 +310,10 @@ void GameCoordinatorLoupy::draw( MTK::View* _pView )
         renderPassEncoder->setScissorRect( MTL::ScissorRect {0, 0, _shadowMap->width(), _shadowMap->height()} );
         ft_memcpy(_pShadowPassDataBuffer[i], &_uniforms_cpu->shadowCameraUniforms[i].viewProjectionMatrix, sizeof(_uniforms_cpu->shadowCameraUniforms[i].viewProjectionMatrix));
     }
+    _pCommandBuffer[0]->endCommandBuffer();
+
+    _pCommandBuffer[1] = _pDevice->newCommandBuffer();
+    _pCommandBuffer[1]->beginCommandBuffer(_pCommandAllocator[frameIndex]);
     {
         MTL4::RenderCommandEncoder* renderEncoder = _pCommandBuffer[1]->renderCommandEncoder(_gBufferPassDesc);
         renderEncoder->setCullMode( MTL::CullModeBack );
@@ -308,6 +321,12 @@ void GameCoordinatorLoupy::draw( MTK::View* _pView )
     }
     {
         MTL4::ComputeCommandEncoder* computeEncoder = _pCommandBuffer[2]->computeCommandEncoder();
+        computeEncoder->setLabel(MTLSTR("CCE2knlMousePos"));
+        computeEncoder->setComputePipelineState(_mousePositionComputeKnl);
+    }
+    {
+        MTL4::RenderCommandEncoder* renderEncoderDepth = _pCommandBuffer[3]->renderCommandEncoder(_lightingPassDesc);
+        
     }
 
 //    MTL4::RenderPassDescriptor* pRenderPassDescriptor = _pView->currentMTL4RenderPassDescriptor();

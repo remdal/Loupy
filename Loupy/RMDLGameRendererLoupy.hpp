@@ -46,7 +46,7 @@ public:
 private:
     MTL::PixelFormat                    _pPixelFormat;
     MTL4::CommandQueue*                 _pCommandQueue;
-    MTL4::CommandBuffer*                _pCommandBuffer[3];
+    MTL4::CommandBuffer*                _pCommandBuffer[4];
     MTL4::CommandAllocator*             _pCommandAllocator[kMaxBuffersInFlight];
     MTL4::ArgumentTable*                _pArgumentTable;
     MTL::ResidencySet*                  _pResidencySet;

@@ -216,19 +216,19 @@ void RMDLCamera::setWidth(float newWidth)
     _uniformsDirty = true;
 }
 
-void RMDLCamera::setPosition(simd::float3 newPosition)
+void RMDLCamera::setPosition( simd::float3 newPosition )
 {
     _position = newPosition;
     _uniformsDirty = true;
 }
 
-void RMDLCamera::setUp(simd::float3 newUp)
+void RMDLCamera::setUp( simd::float3 newUp )
 {
     orthogonalizeFromNewUp(newUp);
     _uniformsDirty = true;
 }
 
-void RMDLCamera::setDirection(simd::float3 newDirection)
+void RMDLCamera::setDirection( simd::float3 newDirection )
 {
     orthogonalizeFromNewForward(newDirection);
     _uniformsDirty = true;
